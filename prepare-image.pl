@@ -58,23 +58,29 @@ if ($distro eq "debian" || $distro eq "ubuntu") {
 }
 elsif ($distro =~ m/^(fedora|rhel|redhat-based|centos|scientificlinux)$/) {
   print "Setting up for Fedora / RHEL\n";
-  $file = "/etc/sysconfig/network-scripts/ifcfg-eth0";
+  $file = "/etc/sysconfig/network-scripts/ifcfg-eth1";
   if ($ENV{STATIC_IPADDR}) {
     print "Setting static network configuration\n";
-    $content = "DEVICE=eth0\n";
+    $content = "DEVICE=eth1\n";
     $content .= "ONBOOT=yes\n";
     $content .= "BOOTPROTO=static\n";
     $content .= "NM_CONTROLLED=no\n";
-    $content .= "HWADDR=$ENV{MAC}\n";
+    $content .= "HWADDR=$ENV{MAC2}\n";
     $content .= "IPADDR=$ENV{STATIC_IPADDR}\n";
     $content .= "NETMASK=$ENV{STATIC_NETMASK}\n";
     $content .= "GATEWAY=$ENV{STATIC_GATEWAY}\n";
   } else {
     print "Setting MAC address\n";
     $content = $g->read_file ($file);
-    $content =~ s/HWADDR=.*/HWADDR=$ENV{MAC}/g;
+    $content =~ s/HWADDR=.*/HWADDR=$ENV{MAC2}/g;
   }
   $g->write ($file, $content);
+
+print "Configuring /etc/sysconfig/network-scripts/ifcfg-eth0 file\n";
+$file = "/etc/sysconfig/network-scripts/ifcfg-eth0";
+$content = $g->read_file ($file);
+$content =~ s/HWADDR=.*/HWADDR=$ENV{MAC1}/g;
+$g->write ($file, $content);
 
   print "Setting hostname\n";
   if ($major >= 18 || ($distro eq "rhel" || $distro eq "centos") && $major >= 7) {

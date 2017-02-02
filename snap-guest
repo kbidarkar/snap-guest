@@ -191,7 +191,8 @@ done
 SOURCE_IMG=$(ls -v1 $BASE_IMAGE_DIR/${SOURCE_NAME}*.img | tail -n1)
 TARGET_IMG=$IMAGE_DIR/$TARGET_NAME.img
 TARGET_IMG_SWAP=$IMAGE_DIR/$TARGET_NAME-swap.img
-MAC="52:54:00$(echo "$(hostname)$TARGET_NAME" | openssl dgst -md5 -binary | hexdump -e '/1 ":%02x"' -n 3)"
+MAC1="52:54:00$(echo "$(hostname)$TARGET_NAME" | openssl dgst -md5 -binary | hexdump -e '/1 ":%02x"' -n 3)"
+MAC2="52:54:00$(echo "$(hostname)$TARGET_IMG" | openssl dgst -md5 -binary | hexdump -e '/1 ":%02x"' -n 3)"
 TARGET_HOSTNAME=$TARGET_HOSTNAME
 if [ -z "$TARGET_HOSTNAME" ]; then
   TARGET_HOSTNAME="$PREFIX$TARGET_NAME$DOMAIN"
@@ -226,7 +227,7 @@ qemu-img create -f qcow2 -b $SOURCE_IMG $TARGET_IMG
 # -- Image Manipulation ----------
 
 if [ $CLOUD -eq 0 -o $CLOUD_PRECONF -eq 1 ]; then
-  export COMMAND TARGET_HOSTNAME MAC SOURCE_NAME SWAP TARGET_IMG TARGET_NAME \
+  export COMMAND TARGET_HOSTNAME MAC1 MAC2 SOURCE_NAME SWAP TARGET_IMG TARGET_NAME \
     STATIC_IPADDR STATIC_NETMASK STATIC_GATEWAY
   perl -w "$SCRIPTDIR/prepare-image.pl"
 fi
@@ -287,15 +288,16 @@ echo "Hostname: $TARGET_HOSTNAME"
 echo "CPUs:     $CPUS"
 echo "Memory:   $MEM MB"
 echo "Swap:     $MEM MB"
-echo "MAC:      $MAC"
+echo "MAC1:     $MAC1"
+echo "MAC2:     $MAC2"
 virt-install --vcpus $CPUS \
   --ram $MEM --import \
   --name $TARGET_NAME \
   --disk $TARGET_IMG,device=disk,bus=virtio,format=qcow2 $DISK_SWAP $DISK_SEED \
   --graphics "$GRAPHICS_OPTS" \
   --noautoconsole --force \
-  --network=$NETWORK,mac=$MAC \
-  $NETWORK2 \
+  --network=$NETWORK,mac=$MAC1,model="virtio" \
+  "$NETWORK2,mac=$MAC2,model=virtio" \
   $CPU_FEATURE
 
 # -- IP Determining -------------
@@ -304,7 +306,7 @@ virt-install --vcpus $CPUS \
 if [ $ADD_IP -eq 1 ]; then
   echo "Waiting for IP"
   i=0
-  until [ $i -ge 100 ] || IP_LINE=`cat /var/lib/libvirt/dnsmasq/${NETWORK/network=}.leases /var/lib/dnsmasq/dnsmasq.leases 2>/dev/null | grep "$MAC"`; do
+  until [ $i -ge 100 ] || IP_LINE=`cat /var/lib/libvirt/dnsmasq/${NETWORK/network=}.leases /var/lib/dnsmasq/dnsmasq.leases 2>/dev/null | grep "$MAC1"`; do
     i=$((i + 1))
     sleep 1
   done
